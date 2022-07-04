@@ -33,9 +33,24 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         showWindow(nil)
         return true
     }
+
+    func applicationDockMenu(_ sender: NSApplication) -> NSMenu? {
+        guard window.isKeyWindow == false else { return nil }
+        let menu = NSMenu(title: "Dock menu")
+        menu.addItem(
+            withTitle: NSLocalizedString("Open", comment: "Open action"),
+            action: #selector(dockOpen),
+            keyEquivalent: "n"
+        )
+        return menu
+    }
 }
 
 extension AppDelegate {
+
+    @objc func dockOpen() {
+        window.makeKeyAndOrderFront(nil)
+    }
 
     @IBAction func showWindow(_ sender: Any?) {
         window.makeKeyAndOrderFront(sender)
