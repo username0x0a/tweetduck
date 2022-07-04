@@ -1,0 +1,14 @@
+//
+//  Config.xcconfig
+//  TweetDuck
+//
+//  Created by Michal Zelinka on 04/07/2022.
+//
+
+// Configuration settings file format documentation can be found at:
+// https://help.apple.com/xcode/#/dev745c5c974
+
+APP_BUNDLE_ID   = net.misacek.TweetDuck
+APP_NAME        = TweetDuck
+APP_VERSION     = 0.1
+APP_BUILD       = 13
