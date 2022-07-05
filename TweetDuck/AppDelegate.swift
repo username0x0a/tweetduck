@@ -18,6 +18,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         // Insert code here to initialize your application
         webView.navigationDelegate = self
         webView.uiDelegate = self
+
+        webView.configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
+
         webView.load(URLRequest(url: URL(string: "https://tweetdeck.twitter.com")!))
     }
 
