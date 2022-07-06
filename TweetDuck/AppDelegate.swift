@@ -76,9 +76,12 @@ extension AppDelegate {
 
     func checkCurrentAppearance() {
 
+        let desiredMode = webView.effectiveAppearance.name == .darkAqua ? "dark" : "light"
+
         let script = """
             var mode = TD.settings.getTheme()
-            var desiredMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? "dark" : "light"
+            var desiredMode = '\(desiredMode)'
+            console.log(desiredMode)
             if (mode != desiredMode) { TD.settings.setTheme(desiredMode) }
             """
 
