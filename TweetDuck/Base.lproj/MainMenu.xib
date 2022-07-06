@@ -16,6 +16,8 @@
         <customObject id="-3" userLabel="Application" customClass="NSObject"/>
         <customObject id="Voe-Tx-rLC" customClass="AppDelegate" customModule="TweetDuck" customModuleProvider="target">
             <connections>
+                <outlet property="duckyImage" destination="XuT-Pz-hWK" id="qWQ-43-OVy"/>
+                <outlet property="progressView" destination="iWO-Rd-4Zj" id="XeA-h6-xJy"/>
                 <outlet property="webView" destination="cmo-nF-nMo" id="CGf-O2-sH5"/>
                 <outlet property="window" destination="QvC-M9-y7g" id="gIp-Ho-8D9"/>
             </connections>
@@ -312,6 +314,13 @@
                     <modifierMask key="keyEquivalentModifierMask"/>
                     <menu key="submenu" title="View" id="HyV-fh-RgO">
                         <items>
+                            <menuItem title="Toggle Beta UI 🧪" id="18g-Bv-rFY">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <connections>
+                                    <action selector="toggleBetaUI:" target="Voe-Tx-rLC" id="Cna-KR-ZKI"/>
+                                </connections>
+                            </menuItem>
+                            <menuItem isSeparatorItem="YES" id="9Lv-la-Cua"/>
                             <menuItem title="Enter Full Screen" keyEquivalent="f" id="4J7-dP-txa">
                                 <modifierMask key="keyEquivalentModifierMask" control="YES" command="YES"/>
                                 <connections>
@@ -347,7 +356,7 @@
                     </menu>
                 </menuItem>
             </items>
-            <point key="canvasLocation" x="129" y="30"/>
+            <point key="canvasLocation" x="-101" y="44"/>
         </menu>
         <window title="TweetDuck" separatorStyle="line" allowsToolTipsWhenApplicationIsInactive="NO" autorecalculatesKeyViewLoop="NO" releasedWhenClosed="NO" frameAutosaveName="tweetduckWindow" animationBehavior="default" tabbingMode="disallowed" id="QvC-M9-y7g">
             <windowStyleMask key="styleMask" titled="YES" closable="YES" miniaturizable="YES" resizable="YES"/>
@@ -364,8 +373,8 @@
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                         <imageCell key="cell" refusesFirstResponder="YES" alignment="left" imageScaling="proportionallyDown" image="Ducky" id="ViY-Lz-hdP"/>
                     </imageView>
-                    <progressIndicator hidden="YES" fixedFrame="YES" maxValue="100" indeterminate="YES" style="spinning" translatesAutoresizingMaskIntoConstraints="NO" id="iWO-Rd-4Zj">
-                        <rect key="frame" x="384" y="284" width="32" height="32"/>
+                    <progressIndicator fixedFrame="YES" maxValue="100" indeterminate="YES" style="spinning" translatesAutoresizingMaskIntoConstraints="NO" id="iWO-Rd-4Zj">
+                        <rect key="frame" x="384" y="285" width="32" height="32"/>
                         <autoresizingMask key="autoresizingMask" flexibleMinX="YES" flexibleMaxX="YES" flexibleMinY="YES" flexibleMaxY="YES"/>
                     </progressIndicator>
                     <wkWebView wantsLayer="YES" fixedFrame="YES" customUserAgent="Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.6 Safari/605.1.15" translatesAutoresizingMaskIntoConstraints="NO" id="cmo-nF-nMo">

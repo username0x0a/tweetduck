@@ -13,6 +13,8 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     @IBOutlet var window: NSWindow!
     @IBOutlet var webView: WKWebView!
+    @IBOutlet var progressView: NSProgressIndicator!
+    @IBOutlet var duckyImage: NSImageView!
 
     var appearanceObservation: NSKeyValueObservation?
     var progressObservation: NSKeyValueObservation?
@@ -25,16 +27,20 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         webView.uiDelegate = self
 
         webView.configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
+        webView.configuration.userContentController.add(self, name: "duckDuckDo")
 
         appearanceObservation = webView.observe(\.effectiveAppearance) { _,_ in self.checkCurrentAppearance() }
         progressObservation = webView.observe(\.estimatedProgress) { _,_ in self.onProgressUpdate() }
 
         webView.load(URLRequest(url: URL(string: "https://tweetdeck.twitter.com")!))
+
+        onUIVersionChange(.legacy) // Backup for now
+
+        webView.alphaValue = 0
+        progressView.startAnimation(nil)
     }
 
-    func applicationWillTerminate(_ aNotification: Notification) {
-        // Insert code here to tear down your application
-    }
+    func applicationWillTerminate(_ aNotification: Notification) { }
 
     func applicationSupportsSecureRestorableState(_ app: NSApplication) -> Bool {
         return true
@@ -60,7 +66,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 extension AppDelegate {
 
     func showSettings() {
-        let script = "new TD.components.GlobalSettings"
+        let script = "if (TD.ready) { new TD.components.GlobalSettings() }"
         webView.evaluateJavaScript(script)
     }
 
@@ -72,15 +78,9 @@ extension AppDelegate {
     func checkCurrentAppearance() {
 
         let script = """
-            (function loop_currentAppearance(){
-                setTimeout(function() {
-                    if (TD && TD.ready) {
-                        var mode = TD.settings.getTheme()
-                        var desiredMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? "dark" : "light"
-                        if (mode != desiredMode) { TD.settings.setTheme(desiredMode) }
-                    } else loop_currentAppearance()
-              }, 500)
-            })()
+            var mode = TD.settings.getTheme()
+            var desiredMode = window.matchMedia('(prefers-color-scheme: dark)').matches ? "dark" : "light"
+            if (mode != desiredMode) { TD.settings.setTheme(desiredMode) }
             """
 
         webView.evaluateJavaScript(script)
@@ -99,17 +99,11 @@ extension AppDelegate {
         let htmlString = "data:image/png;base64,\(base64String)"
 
         let script = """
-            (function loop_injectLogo(){
-                setTimeout(function() {
-                    var logoElm = document.getElementsByClassName('tweetdeck-logo')[0]
-                    if (logoElm != null) {
-                        logoElm.style = "background: none"
-                        logoElm.classList.toggle('width--26', false)
-                        logoElm.classList.toggle('height--24', false)
-                        logoElm.innerHTML = "<img src='\(htmlString)' style='width: 36px; height: 36px'>"
-                    } else loop_injectLogo()
-              }, 500)
-            })()
+            var logoElm = document.getElementsByClassName('tweetdeck-logo')[0]
+            logoElm.style = "background: none"
+            logoElm.classList.toggle('width--26', false)
+            logoElm.classList.toggle('height--24', false)
+            logoElm.innerHTML = "<img src='\(htmlString)' style='width: 36px; height: 36px'>"
             """
 
         webView.evaluateJavaScript(script)
@@ -117,11 +111,49 @@ extension AppDelegate {
 
     func onProgressUpdate() {
         if webView.url?.host == "tweetdeck.twitter.com" && webView.estimatedProgress >= 1 {
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-                self.checkCurrentAppearance()
-                self.injectLogo()
-            }
+            injectOnLoadCaller()
         }
+    }
+
+    func onTweetDeckLoad() {
+        checkCurrentAppearance()
+        injectLogo()
+
+        NSAnimationContext.runAnimationGroup {
+            $0.duration = 0.2
+            webView.animator().alphaValue = 1
+        } completionHandler: {
+            self.progressView.stopAnimation(nil)
+        }
+    }
+
+    func onUIVersionChange(_ version: DuckDuckEvent.UIVersion) {
+
+        let script = """
+            var uiVersion = '\(version.rawValue)'
+            var expiration = (new Date(new Date().getTime()+1000*60*60*24*365)).toUTCString()
+            document.cookie = 'tweetdeck_version=' + uiVersion
+                            + ';expires=' + expiration
+                            + ';domain=.twitter.com;path=/'
+            location.reload()
+            """
+
+        webView.evaluateJavaScript(script)
+    }
+
+    func injectOnLoadCaller() {
+
+        let script = """
+            (function loop_onTDReady(){
+                setTimeout(function() {
+                    if (TD && TD.ready) {
+                        window.webkit.messageHandlers.duckDuckDo.postMessage('\(DuckDuckEvent.appLoaded.rawValue)')
+                    } else loop_onTDReady()
+              }, 100)
+            })()
+            """
+
+        webView.evaluateJavaScript(script)
     }
 
     @objc func dockOpen() {
@@ -138,6 +170,26 @@ extension AppDelegate {
 
     @IBAction func showPreferences(_ sender: Any?) {
         showSettings()
+    }
+
+    @IBAction func toggleBetaUI(_ sender: Any?) {
+
+        let script = """
+            document.cookie.split(';')
+                .filter(cookie => cookie.indexOf('tweetdeck_version=') == 0)
+                .map(cookie => cookie.replace('tweetdeck_version=',''))[0]
+            """
+
+        webView.evaluateJavaScript(script) { result, _ in
+            let string = result as? String ?? ""
+            let version = DuckDuckEvent.UIVersion(rawValue: string)
+            let newVersion: DuckDuckEvent.UIVersion
+            switch version {
+                case .legacy:             newVersion = .beta
+                case .main, .beta, .none: newVersion = .legacy
+            }
+            self.onUIVersionChange(newVersion)
+        }
     }
 }
 
@@ -166,3 +218,40 @@ extension AppDelegate: WKNavigationDelegate {
 
 extension AppDelegate: WKUIDelegate {}
 
+extension AppDelegate: WKScriptMessageHandler {
+
+    enum DuckDuckEvent: String {
+        case appLoaded
+        case changeUIVersion
+
+        enum UIVersion: String {
+            case legacy
+            case main
+            case beta
+        }
+    }
+
+    func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+
+        // Example: window.webkit.messageHandlers.duckDuckDo.postMessage('changeUIVersion beta')
+
+        guard message.name == "duckDuckDo", let body = message.body as? String else { return }
+
+        var arguments = body.components(separatedBy: " ").filter { $0.count > 0 }
+        let command = DuckDuckEvent(rawValue: arguments.first ?? "")
+        arguments.removeFirst()
+
+        switch command {
+
+            case .appLoaded:
+                onTweetDeckLoad()
+
+            case .changeUIVersion:
+                if let uiVersion = DuckDuckEvent.UIVersion(rawValue: arguments.first ?? "") {
+                    onUIVersionChange(uiVersion)
+                }
+
+            case .none: break
+        }
+    }
+}
