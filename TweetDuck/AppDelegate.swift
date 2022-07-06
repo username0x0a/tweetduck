@@ -18,6 +18,7 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
     var appearanceObservation: NSKeyValueObservation?
     var progressObservation: NSKeyValueObservation?
+    var urlObservation: NSKeyValueObservation?
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
 
@@ -29,15 +30,13 @@ class AppDelegate: NSObject, NSApplicationDelegate {
         webView.configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
         webView.configuration.userContentController.add(self, name: "duckDuckDo")
 
-        appearanceObservation = webView.observe(\.effectiveAppearance) { _,_ in self.checkCurrentAppearance() }
-        progressObservation = webView.observe(\.estimatedProgress) { _,_ in self.onProgressUpdate() }
+        appearanceObservation = webView.observe(\.effectiveAppearance) { [weak self] _,_ in self?.checkCurrentAppearance() }
+        progressObservation = webView.observe(\.estimatedProgress) { [weak self] _,_ in self?.onProgressUpdate() }
+        urlObservation = webView.observe(\.url) { [weak self] _,_ in self?.onURLUpdate() }
 
         webView.load(URLRequest(url: URL(string: "https://tweetdeck.twitter.com")!))
 
-        onUIVersionChange(.legacy) // Backup for now
-
-        webView.alphaValue = 0
-        progressView.startAnimation(nil)
+        toggleContent(visible: false)
     }
 
     func applicationWillTerminate(_ aNotification: Notification) { }
@@ -109,6 +108,21 @@ extension AppDelegate {
         webView.evaluateJavaScript(script)
     }
 
+    func toggleContent(visible: Bool) {
+
+        let duration = visible ? 0.2 : 0.1
+        let alpha = visible ? 1.0 : 0
+
+        if !visible { progressView.startAnimation(nil) }
+
+        NSAnimationContext.runAnimationGroup {
+            $0.duration = duration
+            webView.animator().alphaValue = alpha
+        } completionHandler: {
+            if visible { self.progressView.stopAnimation(nil) }
+        }
+    }
+
     func onProgressUpdate() {
         if webView.url?.host == "tweetdeck.twitter.com" && webView.estimatedProgress >= 1 {
             injectOnLoadCaller()
@@ -118,12 +132,15 @@ extension AppDelegate {
     func onTweetDeckLoad() {
         checkCurrentAppearance()
         injectLogo()
+        toggleContent(visible: true)
+    }
 
-        NSAnimationContext.runAnimationGroup {
-            $0.duration = 0.2
-            webView.animator().alphaValue = 1
-        } completionHandler: {
-            self.progressView.stopAnimation(nil)
+    func onURLUpdate() {
+        guard let url = webView.url else { return }
+        let urlString = url.absoluteString
+
+        if urlString ~= "twitter.com" && url.path == "/" {
+            webView.load(URLRequest(url: URL(string: Pages.tweetDeckHomePage.rawValue)!))
         }
     }
 
@@ -144,11 +161,18 @@ extension AppDelegate {
     func injectOnLoadCaller() {
 
         let script = """
-            (function loop_onTDReady(){
+            (function loop_onLoadReady(){
                 setTimeout(function() {
                     if (TD && TD.ready) {
-                        window.webkit.messageHandlers.duckDuckDo.postMessage('\(DuckDuckEvent.appLoaded.rawValue)')
-                    } else loop_onTDReady()
+                        window.webkit.messageHandlers.duckDuckDo
+                            .postMessage('\(DuckDuckEvent.appLoaded.rawValue)')
+                    } else if (TD && document.cookie.match('twid=') == null) {
+                        window.webkit.messageHandlers.duckDuckDo
+                            .postMessage('\(DuckDuckEvent.pageLoaded.rawValue) ' + window.location.href)
+                    } else if (TD == null && document.readyState == 'complete') {
+                        window.webkit.messageHandlers.duckDuckDo
+                            .postMessage('\(DuckDuckEvent.pageLoaded.rawValue) ' + window.location.href)
+                    } else loop_onLoadReady()
               }, 100)
             })()
             """
@@ -200,17 +224,34 @@ extension AppDelegate: WKNavigationDelegate {
         decidePolicyFor navigationAction: WKNavigationAction,
         decisionHandler: @escaping (WKNavigationActionPolicy) -> Void
     ) {
-        if let url = navigationAction.request.url {
-            if url.absoluteString.contains("twitter.com/login") {
-                decisionHandler(.allow)
-            } else if url.host?.contains("tweetdeck.twitter.com") == false {
-                NSWorkspace.shared.open(url)
-                decisionHandler(.cancel)
-            } else {
-                decisionHandler(.allow)
-            }
-        } else {
+        guard let url = navigationAction.request.url else { return decisionHandler(.cancel) }
+
+        let urlString = url.absoluteString
+
+        if urlString ~= "twitter.com/login" || urlString ~= "twitter.com/logout" {
+            // Login, Logout pages
+            decisionHandler(.allow)
+        } else if urlString ~= "twitter.com/.*(password_reset|signup)" {
+            // Password reset page
             decisionHandler(.cancel)
+            NSWorkspace.shared.open(url)
+        } else if urlString ~= "twitter.com/.*(/cards/)" {
+            // Cards, Polls, etc.
+            decisionHandler(.allow)
+        } else if urlString ~= "//accounts.google.com.*gsi.*button" {
+            // Sign in with Google button
+            decisionHandler(.allow)
+        } else if urlString ~= "//(www.)?twitter.com" && url.path == "/" {
+            // Basic Twitter homepage
+            decisionHandler(.cancel)
+            webView.load(URLRequest(url: URL(string: Pages.tweetDeckHomePage.rawValue)!))
+        } else if urlString ~= "//tweetdeck.twitter.com" {
+            // Anything TweetDeck
+            decisionHandler(.allow)
+        } else {
+            // Anything else
+            decisionHandler(.cancel)
+            NSWorkspace.shared.open(url)
         }
     }
 
@@ -220,7 +261,12 @@ extension AppDelegate: WKUIDelegate {}
 
 extension AppDelegate: WKScriptMessageHandler {
 
+    enum Pages: String {
+        case tweetDeckHomePage = "https://tweetdeck.twitter.com"
+    }
+
     enum DuckDuckEvent: String {
+        case pageLoaded
         case appLoaded
         case changeUIVersion
 
@@ -246,6 +292,9 @@ extension AppDelegate: WKScriptMessageHandler {
             case .appLoaded:
                 onTweetDeckLoad()
 
+            case .pageLoaded:
+                toggleContent(visible: true)
+
             case .changeUIVersion:
                 if let uiVersion = DuckDuckEvent.UIVersion(rawValue: arguments.first ?? "") {
                     onUIVersionChange(uiVersion)
@@ -253,5 +302,13 @@ extension AppDelegate: WKScriptMessageHandler {
 
             case .none: break
         }
+    }
+}
+
+extension String {
+    static func ~= (lhs: String, rhs: String) -> Bool {
+        guard let regex = try? NSRegularExpression(pattern: rhs) else { return false }
+        let range = NSRange(location: 0, length: lhs.utf16.count)
+        return regex.firstMatch(in: lhs, options: [], range: range) != nil
     }
 }
