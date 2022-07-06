@@ -18,7 +18,9 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var progressObservation: NSKeyValueObservation?
 
     func applicationDidFinishLaunching(_ aNotification: Notification) {
-        // Insert code here to initialize your application
+
+        UserDefaults.standard.set(true, forKey: "NSApplicationCrashOnExceptions")
+
         webView.navigationDelegate = self
         webView.uiDelegate = self
 
