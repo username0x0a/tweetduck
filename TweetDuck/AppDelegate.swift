@@ -24,9 +24,21 @@ class AppDelegate: NSObject, NSApplicationDelegate {
 
         UserDefaults.standard.set(true, forKey: "NSApplicationCrashOnExceptions")
 
+        URLCache.shared.removeAllCachedResponses()
+        URLCache.shared.diskCapacity = 0
+        URLCache.shared.memoryCapacity = 0
+
+        WKWebsiteDataStore.default().removeData(ofTypes: [
+            WKWebsiteDataTypeFetchCache,
+            WKWebsiteDataTypeDiskCache,
+            WKWebsiteDataTypeMemoryCache,
+            WKWebsiteDataTypeOfflineWebApplicationCache,
+        ], modifiedSince: .distantPast) { }
+
         webView.navigationDelegate = self
         webView.uiDelegate = self
 
+        webView.configuration.websiteDataStore = .nonPersistent()
         webView.configuration.preferences.setValue(true, forKey: "developerExtrasEnabled")
         webView.configuration.userContentController.add(self, name: "duckDuckDo")
 
