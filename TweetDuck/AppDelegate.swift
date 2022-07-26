@@ -272,7 +272,24 @@ extension AppDelegate: WKNavigationDelegate {
 
 }
 
-extension AppDelegate: WKUIDelegate {}
+extension AppDelegate: WKUIDelegate {
+
+    func webView(
+        _ webView: WKWebView,
+        createWebViewWith configuration: WKWebViewConfiguration,
+        for navigationAction: WKNavigationAction,
+        windowFeatures: WKWindowFeatures
+    ) -> WKWebView? {
+
+        // Open `target="_blank"` destinations via system
+
+        if let url = navigationAction.request.url {
+            NSWorkspace.shared.open(url)
+        }
+
+        return nil
+    }
+}
 
 extension AppDelegate: WKScriptMessageHandler {
 
