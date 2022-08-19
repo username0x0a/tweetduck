@@ -10,5 +10,5 @@
 
 APP_BUNDLE_ID   = net.misacek.TweetDuck
 APP_NAME        = TweetDuck
-APP_VERSION     = 0.1
-APP_BUILD       = 13
+APP_VERSION     = 0.2
+APP_BUILD       = 42
