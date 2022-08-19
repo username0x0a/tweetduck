@@ -10,12 +10,13 @@ Replacement macOS app for a discontinued & now defunct TweetDeck app.
 
 - Pretty much everything that TweetDeck offered, as expected 👌
 - Support for closing the app window without terminating the application completely 🙌
+- Automatic Light/Dark mode switching based on the system state 🌘
+- Bound Find and Preferences actions with shortcuts 🔍
 
 ## TODO
 
-- Automatic Light/Dark mode switching based on the system state 🌘
 - Fix other bugs that will definitely appear 🐛
-- Extension integration 🧰
+- Extendability 🧰
 
 ## Found a Bug?
 
