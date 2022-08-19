@@ -20,7 +20,11 @@ class AppDelegate: NSObject, NSApplicationDelegate {
     var progressObservation: NSKeyValueObservation?
     var urlObservation: NSKeyValueObservation?
 
+    var updateAvailable: Bool = false
+
     func applicationDidFinishLaunching(_ aNotification: Notification) {
+
+        checkUpdate { self.updateAvailable = true }
 
         UserDefaults.standard.set(true, forKey: "NSApplicationCrashOnExceptions")
 
@@ -100,6 +104,42 @@ extension AppDelegate {
         webView.evaluateJavaScript(script)
     }
 
+    func checkUpdateIndication() {
+
+        guard updateAvailable else { return }
+
+        let script = """
+            var template = document.createElement('template');
+            template.innerHTML = "\
+            <style>\
+                a.tweetDuckUpdate {\
+                    z-index: 10; padding: 3px 24px; height: 44px; position: absolute; background: #f2b64a;\
+                    text-align: center; display: inline-block; line-height: 44px; bottom: 24px; left: 50%;\
+                    transform: translate(-50%,0); color: white; border-radius: 44px;\
+                    box-shadow: 0 1px 1px rgba(255, 255, 255, 0.52) inset, 0 8px 50px rgba(0, 0, 0, 0.26);\
+                    font-size: 1.1em; text-decoration: none; background-image: linear-gradient(#f2c447, #f18e51);\
+                    text-shadow: 0 -1px 0 rgba(14, 14, 14, 0.3); text-transform: uppercase; letter-spacing: 2px;\
+                    font-weight: 600; cursor: pointer;\
+                }\
+                a.tweetDuckUpdate:hover {\
+                    background-image: linear-gradient(#f7d067, #eeaa33);\
+                }\
+                a.tweetDuckUpdate:active {\
+                    transform: translate(-50%,0) scale(0.98);\
+                }\
+            </style>\
+            <script>\
+            function updateAppCallback() {\
+            }\
+            </script>\
+            <a class='tweetDuckUpdate' href='https://tweetduck.update'>Update TweetDuck 🐤</a>\
+            "
+            template.content.childNodes.forEach(e => document.querySelector('div.application').appendChild(e))
+            """
+
+        webView.evaluateJavaScript(script)
+    }
+
     func injectLogo() {
 
         var imageRect = NSRect(origin: .zero, size: .init(width: 36, height: 36))
@@ -146,6 +186,7 @@ extension AppDelegate {
 
     func onTweetDeckLoad() {
         checkCurrentAppearance()
+        checkUpdateIndication()
         injectLogo()
         toggleContent(visible: true)
     }
@@ -263,13 +304,15 @@ extension AppDelegate: WKNavigationDelegate {
         } else if urlString ~= "//tweetdeck.twitter.com" {
             // Anything TweetDeck
             decisionHandler(.allow)
+        } else if urlString ~= "//tweetduck.update" {
+            // TweetDuck update action
+            decisionHandler(.cancel)
         } else {
             // Anything else
             decisionHandler(.cancel)
             NSWorkspace.shared.open(url)
         }
     }
-
 }
 
 extension AppDelegate: WKUIDelegate {
@@ -284,7 +327,13 @@ extension AppDelegate: WKUIDelegate {
         // Open `target="_blank"` destinations via system
 
         if let url = navigationAction.request.url {
-            NSWorkspace.shared.open(url)
+            let urlString = url.absoluteString
+            if urlString ~= "//tweetduck.update" {
+                let githubURL = URL(string: "https://github.com/username0x0a/tweetduck/releases").unsafelyUnwrapped
+                NSWorkspace.shared.open(githubURL)
+            } else {
+                NSWorkspace.shared.open(url)
+            }
         }
 
         return nil
@@ -337,10 +386,107 @@ extension AppDelegate: WKScriptMessageHandler {
     }
 }
 
+extension AppDelegate {
+
+    func checkUpdate(onUpdateAvailable: @escaping () -> Void) {
+
+        let lastUpdateKey = "_LastUpdate"
+        let defaults = UserDefaults.standard
+
+        let currentTimestamp = Date().timeIntervalSince1970
+
+        guard let currentVersionString =
+                Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String,
+              let url = URL(string: "https://api.github.com/repos/username0x0a/tweetduck/releases")
+        else { return }
+
+        func stringToIntVersion(_ str: String) -> Int {
+            var version = 0
+            let steppers = [1000000, 1000, 1]
+            let comps = str.components(separatedBy: ".")
+            for comp in comps.enumerated() {
+                guard let compInt = Int(comp.element),
+                      comp.offset < steppers.count
+                else { break }
+                version += steppers[comp.offset] * compInt
+            }
+            return version
+        }
+
+        let currentVersion = stringToIntVersion(currentVersionString)
+
+        if let lastUpdateInfo = defaults.string(forKey: lastUpdateKey) {
+
+            let scanner = Scanner(string: lastUpdateInfo)
+            scanner.charactersToBeSkipped = CharacterSet(charactersIn: "|")
+
+            if let tag = scanner.scanUpTo("|"),
+               let timestamp = scanner.scanDouble() {
+
+                let lastVersion = stringToIntVersion(tag)
+
+                if lastVersion > currentVersion {
+                    onUpdateAvailable()
+                    return
+                } else if timestamp > currentTimestamp - 2 * 86400 {
+                    return
+                }
+            }
+        }
+
+        struct Release: Decodable {
+            let tagName: String
+            let url: URL
+        }
+
+        URLSession.shared.dataTask(with: url) { data, response, error in
+
+            let decoder = JSONDecoder()
+            decoder.keyDecodingStrategy = .convertFromSnakeCase
+
+            guard
+                let data = data,
+                data.count > 0,
+                let releases = try? decoder.decode([Release].self, from: data),
+                let latestRelease = releases.first
+            else { return }
+
+            let latestTag = latestRelease.tagName.replacingOccurrences(of: "v", with: "")
+            let latestVersion = stringToIntVersion(latestTag)
+
+            if latestVersion <= currentVersion { return }
+
+            OperationQueue.main.addOperation {
+                defaults.set("\(latestTag)|\(floor(currentTimestamp))", forKey: lastUpdateKey)
+                onUpdateAvailable()
+            }
+
+        }.resume()
+    }
+}
+
 extension String {
     static func ~= (lhs: String, rhs: String) -> Bool {
         guard let regex = try? NSRegularExpression(pattern: rhs) else { return false }
         let range = NSRange(location: 0, length: lhs.utf16.count)
         return regex.firstMatch(in: lhs, options: [], range: range) != nil
+    }
+}
+
+extension Scanner {
+
+    func scanUpToCharactersFrom(_ set: CharacterSet) -> String? {
+        var result: NSString?
+        return scanUpToCharacters(from: set, into: &result) ? (result as? String) : nil
+    }
+
+    func scanUpTo(_ string: String) -> String? {
+        var result: NSString?
+        return self.scanUpTo(string, into: &result) ? (result as? String) : nil
+    }
+
+    func scanDouble() -> Double? {
+        var double: Double = 0
+        return scanDouble(&double) ? double : nil
     }
 }
