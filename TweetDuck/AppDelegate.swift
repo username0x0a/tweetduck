@@ -252,6 +252,10 @@ extension AppDelegate {
         showSettings()
     }
 
+    @IBAction func reloadPage(_ sender: Any?) {
+        webView.reload()
+    }
+
     @IBAction func toggleBetaUI(_ sender: Any?) {
 
         let script = """
