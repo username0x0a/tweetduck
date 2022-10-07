@@ -307,6 +307,12 @@ extension AppDelegate: WKNavigationDelegate {
         } else if urlString ~= "//tweetduck.update" {
             // TweetDuck update action
             decisionHandler(.cancel)
+        } else if urlString ~= "youtube.com/embed" {
+            // Embed YouTube videos
+            decisionHandler(.allow)
+        } else if urlString ~= "about:blank" {
+            // O.M.G
+            decisionHandler(.cancel)
         } else {
             // Anything else
             decisionHandler(.cancel)
