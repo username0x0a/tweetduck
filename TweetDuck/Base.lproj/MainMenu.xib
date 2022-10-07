@@ -319,7 +319,42 @@
                                     <action selector="reloadPage:" target="Voe-Tx-rLC" id="s57-87-VAh"/>
                                 </connections>
                             </menuItem>
-                            <menuItem isSeparatorItem="YES" id="e2D-OJ-Te2"/>
+                            <menuItem isSeparatorItem="YES" id="XUC-kJ-Ab2"/>
+                            <menuItem title="Appearance" id="tni-oB-Eei">
+                                <modifierMask key="keyEquivalentModifierMask"/>
+                                <menu key="submenu" title="Appearance" id="fwb-0x-jhy">
+                                    <items>
+                                        <menuItem title="Auto" id="XHP-03-kRR">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <accessibility identifier="appearanceAuto"/>
+                                            <connections>
+                                                <action selector="switchAppearance:" target="Voe-Tx-rLC" id="jz4-XR-Ku2"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Light" tag="1" id="H4s-T4-GJF">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <accessibility identifier="appearanceLight"/>
+                                            <connections>
+                                                <action selector="switchAppearance:" target="Voe-Tx-rLC" id="Vgr-UJ-feu"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem title="Dark" tag="2" id="SkF-9d-HRV">
+                                            <modifierMask key="keyEquivalentModifierMask"/>
+                                            <accessibility identifier="appearanceDark"/>
+                                            <connections>
+                                                <action selector="switchAppearance:" target="Voe-Tx-rLC" id="ENf-Zs-ICh"/>
+                                            </connections>
+                                        </menuItem>
+                                        <menuItem isSeparatorItem="YES" id="gAx-eK-eMV"/>
+                                        <menuItem title="Toggle" tag="3" keyEquivalent="M" id="8hW-jX-n2c">
+                                            <accessibility identifier="appearanceToggle"/>
+                                            <connections>
+                                                <action selector="switchAppearance:" target="Voe-Tx-rLC" id="gw2-DH-0LS"/>
+                                            </connections>
+                                        </menuItem>
+                                    </items>
+                                </menu>
+                            </menuItem>
                             <menuItem title="Toggle Beta UI 🧪" keyEquivalent="B" id="18g-Bv-rFY">
                                 <connections>
                                     <action selector="toggleBetaUI:" target="Voe-Tx-rLC" id="Cna-KR-ZKI"/>

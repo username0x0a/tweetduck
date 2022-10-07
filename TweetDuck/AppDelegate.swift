@@ -92,6 +92,20 @@ extension AppDelegate {
 
     func checkCurrentAppearance() {
 
+        let appearanceOverride: NSAppearance.Name?
+
+        let appearance = Appearance(
+            rawValue: UserDefaults.standard.integer(forKey: "_uiAppearance")
+        )
+
+        switch appearance {
+            case .light: appearanceOverride = .aqua
+            case .dark:  appearanceOverride = .darkAqua
+            default:     appearanceOverride = nil
+        }
+
+        self.window.appearance = appearanceOverride.flatMap { .init(named: $0) }
+
         let desiredMode = webView.effectiveAppearance.name == .darkAqua ? "dark" : "light"
 
         let script = """
@@ -256,6 +270,27 @@ extension AppDelegate {
         webView.reload()
     }
 
+    @IBAction func switchAppearance(_ sender: Any?) {
+        guard let item = sender as? NSMenuItem else { return }
+
+        let overrideAppearance: Appearance?
+
+        if item.tag == 1 {
+            overrideAppearance = .light
+        } else if item.tag == 2 {
+            overrideAppearance = .dark
+        } else if item.tag == 3 {
+            let effective = window.effectiveAppearance.name
+            overrideAppearance = effective == .darkAqua ? .light : .dark
+        } else {
+            overrideAppearance = .none
+        }
+
+        UserDefaults.standard.set(overrideAppearance?.rawValue ?? 0, forKey: "_uiAppearance")
+
+        checkCurrentAppearance()
+    }
+
     @IBAction func toggleBetaUI(_ sender: Any?) {
 
         let script = """
@@ -401,6 +436,28 @@ extension AppDelegate: WKScriptMessageHandler {
     }
 }
 
+extension AppDelegate: NSMenuItemValidation {
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        let mapping: [String: NSAppearance.Name?] = [
+            "appearanceAuto":  .none,
+            "appearanceLight": .aqua,
+            "appearanceDark":  .darkAqua,
+        ]
+
+        let itemID = menuItem.accessibilityIdentifier()
+
+        guard mapping.keys.contains(itemID) else { return true }
+
+        let windowAppearance = window.appearance?.name
+        let desiredAppearance = mapping[itemID]
+
+        menuItem.state = windowAppearance == desiredAppearance ? .on : .off
+
+        return true
+    }
+}
+
 extension AppDelegate {
 
     func checkUpdate(onUpdateAvailable: @escaping () -> Void) {
@@ -478,6 +535,12 @@ extension AppDelegate {
 
         }.resume()
     }
+}
+
+enum Appearance: Int {
+    case auto
+    case light
+    case dark
 }
 
 extension String {
